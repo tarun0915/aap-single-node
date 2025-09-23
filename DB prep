@@ -1,0 +1,40 @@
+# 0) Sanity: see if the setup tool exists
+command -v postgresql-setup || (dnf -y module reset postgresql && dnf -y module enable postgresql:15 && dnf -y install postgresql-server)
+
+# 1) Initialize the cluster
+/usr/bin/postgresql-setup --initdb --unit postgresql
+
+# 2) Start and enable the service
+systemctl enable --now postgresql
+
+# 3) Verify it's listening
+ss -lntp | grep :5432 || journalctl -xeu postgresql --no-pager | tail -n 50
+
+
+------------------------------------------------------------------------------------------
+# 1) Ensure localhost uses password auth (md5) — skip if you already did this
+cp /var/lib/pgsql/data/pg_hba.conf /var/lib/pgsql/pg_hba.conf.bak.$(date +%s)
+sed -ri 's/^(host\s+all\s+all\s+127\.0\.0\.1\/32\s+).*/\1md5/' /var/lib/pgsql/data/pg_hba.conf
+sed -ri 's/^(host\s+all\s+all\s+::1\/128\s+).*/\1md5/'        /var/lib/pgsql/data/pg_hba.conf
+systemctl reload postgresql
+
+# 2) Use the SAME DB password that you put in inventory.ini for pg_password + hub/eda pg_passwords
+DBPASS=‘password’   # <-- REPLACE with your real value
+DBPASS_SQL=$(printf "%s" "$DBPASS" | sed "s/'/''/g")   # escape single-quotes for SQL literals
+
+
+------------------------------------------------------------------------------------------
+sudo -u postgres bash -lc "cat | psql -v ON_ERROR_STOP=1" <<SQL
+DO \$\$
+BEGIN
+  -- automationedacontroller role
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='automationedacontroller') THEN
+    CREATE ROLE automationedacontroller LOGIN PASSWORD '$DBPASS_SQL';
+  ELSE
+    ALTER ROLE automationedacontroller WITH LOGIN PASSWORD '$DBPASS_SQL';
+  END IF;
+END
+\$\$;
+SQL
+
+--------------------------------------------------------------------------------------------
