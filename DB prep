@@ -22,8 +22,93 @@ systemctl reload postgresql
 DBPASS=‘password’   # <-- REPLACE with your real value
 DBPASS_SQL=$(printf "%s" "$DBPASS" | sed "s/'/''/g")   # escape single-quotes for SQL literals
 
+------------------------------------------------------------------------------------------
+# awx
+sudo -iu postgres bash -lc '
+USER_NAME=awx
+DB_NAME=awx
+DB_PASS="password"   # <- set this to match /etc/tower/conf.d/postgres.py
+
+# 1) Create/alter the role (user) -- allowed in DO block
+psql -v ON_ERROR_STOP=1 <<SQL
+DO \$\$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '\''${USER_NAME}'\'') THEN
+    CREATE ROLE "${USER_NAME}" LOGIN PASSWORD '\''${DB_PASS}'\'';
+  ELSE
+    ALTER ROLE "${USER_NAME}" WITH LOGIN PASSWORD '\''${DB_PASS}'\'';
+  END IF;
+END
+\$\$;
+SQL
+
+# 2) Create the database if it does not exist (must be separate from DO)
+psql -v ON_ERROR_STOP=1 -tAc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" | grep -q 1 || \
+  psql -v ON_ERROR_STOP=1 -c "CREATE DATABASE \"${DB_NAME}\" OWNER \"${USER_NAME}\";"
+
+# 3) Ensure privileges (harmless if it already exists)
+psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "GRANT ALL PRIVILEGES ON DATABASE \"${DB_NAME}\" TO \"${USER_NAME}\";"
+'
 
 ------------------------------------------------------------------------------------------
+# automationhub
+
+sudo -iu postgres bash -lc '
+USER_NAME=automationhub
+DB_NAME=automationhub
+DB_PASS="password"   # <- set this to match /etc/tower/conf.d/postgres.py
+
+# 1) Create/alter the role (user) -- allowed in DO block
+psql -v ON_ERROR_STOP=1 <<SQL
+DO \$\$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '\''${USER_NAME}'\'') THEN
+    CREATE ROLE "${USER_NAME}" LOGIN PASSWORD '\''${DB_PASS}'\'';
+  ELSE
+    ALTER ROLE "${USER_NAME}" WITH LOGIN PASSWORD '\''${DB_PASS}'\'';
+  END IF;
+END
+\$\$;
+SQL
+
+# 2) Create the database if it does not exist (must be separate from DO)
+psql -v ON_ERROR_STOP=1 -tAc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" | grep -q 1 || \
+  psql -v ON_ERROR_STOP=1 -c "CREATE DATABASE \"${DB_NAME}\" OWNER \"${USER_NAME}\";"
+
+# 3) Ensure privileges (harmless if it already exists)
+psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "GRANT ALL PRIVILEGES ON DATABASE \"${DB_NAME}\" TO \"${USER_NAME}\";"
+'
+------------------------------------------------------------------------------------------
+#automationedacontroller
+
+sudo -iu postgres bash -lc '
+USER_NAME=automationedacontroller
+DB_NAME=automationedacontroller
+DB_PASS="password"   # <- set this to match /etc/tower/conf.d/postgres.py
+
+# 1) Create/alter the role (user) -- allowed in DO block
+psql -v ON_ERROR_STOP=1 <<SQL
+DO \$\$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '\''${USER_NAME}'\'') THEN
+    CREATE ROLE "${USER_NAME}" LOGIN PASSWORD '\''${DB_PASS}'\'';
+  ELSE
+    ALTER ROLE "${USER_NAME}" WITH LOGIN PASSWORD '\''${DB_PASS}'\'';
+  END IF;
+END
+\$\$;
+SQL
+
+# 2) Create the database if it does not exist (must be separate from DO)
+psql -v ON_ERROR_STOP=1 -tAc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" | grep -q 1 || \
+  psql -v ON_ERROR_STOP=1 -c "CREATE DATABASE \"${DB_NAME}\" OWNER \"${USER_NAME}\";"
+
+# 3) Ensure privileges (harmless if it already exists)
+psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "GRANT ALL PRIVILEGES ON DATABASE \"${DB_NAME}\" TO \"${USER_NAME}\";"
+'
+
+------------------------------------------------------------------------------------------
+
 sudo -u postgres bash -lc "cat | psql -v ON_ERROR_STOP=1" <<SQL
 DO \$\$
 BEGIN
