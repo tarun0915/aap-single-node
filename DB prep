@@ -48,8 +48,13 @@ sudo -iu postgres bash -lc '
 '
 
 sudo -iu postgres bash -lc '
+    psql -d postgres -c "ALTER USER automationedacontroller WITH PASSWORD '\''password'\'';";
+'
+
+sudo -iu postgres bash -lc '
     psql -d postgres -c "CREATE DATABASE automationedacontroller WITH OWNER automationedacontroller TEMPLATE template0 ENCODING '\''UTF8'\'';";
 '
+
 
 
 ------------------------------------------------------------------------------------------
@@ -62,6 +67,8 @@ PGPASSWORD='password' psql \
   "host=127.0.0.1 port=5432 dbname=automationhub user=automationhub connect_timeout=5" \
   -c "select current_user, current_database();"
 
-
+ PGPASSWORD='password' psql \
+  "host=127.0.0.1 port=5432 dbname=automationedacontroller user=automationedacontroller connect_timeout=5" \
+  -c "select current_user, current_database();"
 
 --------------------------------------------------------------------------------------------

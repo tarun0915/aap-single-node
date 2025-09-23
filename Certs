@@ -1,0 +1,42 @@
+cat > aap-openssl.cnf <<EOF
+[req]
+default_bits       = 4096
+distinguished_name = req_distinguished_name
+req_extensions     = v3_req
+prompt             = no
+
+[req_distinguished_name]
+C  = US
+ST = California
+L  = Pleasanton
+O  = AAP
+CN = aap.54.200.214.211.sslip.io
+
+[v3_req]
+keyUsage = keyEncipherment, dataEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = aap.44.224.14.24.sslip.io
+DNS.2 = hub.44.224.14.24.sslip.io
+DNS.3 = controller.44.224.14.24.sslip.io
+DNS.4 = automationhub.44.224.14.24.sslip.io
+DNS.5 = eda.44.224.14.24.sslip.io
+EOF
+
+# generate key + csr + cert
+openssl req -new -nodes -out aap.csr -keyout aap.key -config aap-openssl.cnf
+openssl x509 -req -days 730 -in aap.csr -signkey aap.key \
+  -out aap.crt -extensions v3_req -extfile aap-openssl.cnf
+
+
+Now you have:
+
+aap.key (private key)
+
+aap.crt (self-signed certificate)
+
+For self-signed: copy aap.crt into /etc/pki/ca-trust/source/anchors/ and run:
+
+sudo update-ca-trust
