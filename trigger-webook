@@ -1,0 +1,118 @@
+# Run on EDA host
+export EDA_TOKEN=test
+ansible-rulebook -r rulebooks/webhook-example.yml --env-vars EDA_TOKEN -v
+
+# Valid authorization token
+curl -sS -X POST "http://44.224.14.24:5000/endpoint" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer test" \
+  -d '{"payload":{"hello":"world"}}'
+  
+# Invalid authorization token
+curl -sS -X POST "http://44.224.14.24:5000/endpoint" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer secrettoken" \
+  -d '{"payload":{"hello":"world"}}'
+
+
+Splunk
+------
+Settings → Indexes → New Index, call it test_index.
+
+Upload events to Splunk HTTP Event Collector
+--------------------------------------------
+curl -k https://44.251.184.204:8088/services/collector \
+  -H "Authorization: Splunk d540a8b3-5866-4123-816c-09508d2446f2" \
+  -d '{"event": {"host":"splunk-ec2","log_level":"ERROR","msg":"disk full"}}'
+
+  curl -k https://44.251.184.204:8088/services/collector \
+  -H "Authorization: Splunk d540a8b3-5866-4123-816c-09508d2446f2" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "index": "main",
+        "source": "http:eda_test",
+        "sourcetype": "_json",
+        "event": {
+          "host": "splunk-ec2",
+          "log_level": "ERROR",
+          "msg": "disk full"
+        }
+      }'
+
+curl -k https://44.251.184.204:8088/services/collector   -H "Authorization: Splunk d540a8b3-5866-4123-816c-09508d2446f2"   -H "Content-Type: application/json"   -d '{
+        "index": "main",
+        "source": "http:eda_test",
+        "sourcetype": "_json",
+        "event": {
+          "host": "splunk-ec2",
+          "log_level": "INFO",
+          "msg": "disk normal"
+        }
+      }'
+
+
+  curl -k https://44.251.184.204:8088/services/collector \
+  -H "Authorization: Splunk d540a8b3-5866-4123-816c-09508d2446f2" \
+  -d '{"event": {"host":"splunk-ec2","log_level":"DEBUG","msg":"disk normal"}}'
+
+
+  Search:
+   source="http:eda_test" (index="test_index")
+
+
+Save as : Alert
+Trigger: per result.
+Actions → Webhook
+
+URL: http://44.224.14.24:5000/endpoint
+HTTP Headers:
+X-EDA-Token: splunktoken
+Content-Type: application/json
+
+
+{
+  "payload": {
+    "host": "$result.host$",
+    "log_level": "$result.log_level$",
+    "msg": "$result.msg$"
+  }
+}
+
+
+
+https://eda.44.224.14.24.sslip.io::5000/endpoint
+
+http://<EDA-PRIVATE-IP>:5000/endpoint
+
+
+sanity check from splunk server
+
+
+  # Replace <EDA_HOST> with the IP/DNS that Splunk will use
+curl -v -X POST "http://44.224.14.24:5002/endpoint" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer splunktoken" \
+  -d '{
+        "host": "splunk-ec2",
+        "log_level": "ERROR",
+        "msg": "disk full"
+}'
+
+
+sudo tee /opt/splunk/bin/scripts/post_to_eda.sh >/dev/null <<'EOF'
+#!/usr/bin/env bash
+EDA_URL="http://44.224.14.24:5002/endpoint"
+EDA_TOKEN="splunktoken"
+
+# Results file from Splunk (gzipped CSV/JSON depending on alert)
+RESULTS_FILE="$4"
+
+# For demo, just send a static payload
+curl -sS -X POST "$EDA_URL" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $EDA_TOKEN" \
+  -d '{"host":"splunk-ec2","log_level":"ERROR","msg":"disk full from alert"}'
+EOF
+
+
+/opt/splunk/bin/scripts/post_to_eda.sh

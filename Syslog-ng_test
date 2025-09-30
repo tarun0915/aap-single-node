@@ -1,0 +1,12 @@
+# Configure syslog-ng to send logs to Splunk HEC
+vi /etc/syslog-ng/syslog-ng.conf
+
+
+# Run foreground with debug (temporarily) to watch events:
+
+sudo systemctl stop syslog-ng
+sudo syslog-ng -Fvde
+
+
+# Send test syslog message to Syslog-ng aggregator
+echo '<30>Sep 29 20:00:00 mymac diskmon: disk full on /var' | nc -u 44.250.218.76 514
