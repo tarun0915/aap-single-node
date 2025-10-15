@@ -17,48 +17,87 @@ ss -lntp | grep :5432 || journalctl -xeu postgresql --no-pager | tail -n 50
 
 ------------------------------------------------------------------------------------------
 # awx
+# user and role are synonymous here
+# use role with login password (not needed with user)
 ------
-sudo -iu postgres bash -lc '
-    psql -d postgres -c "CREATE ROLE awx LOGIN PASSWORD '\''password'\'';";
-'
 
-sudo -iu postgres bash -lc '
-    psql -d postgres -c "CREATE DATABASE awx WITH OWNER awx TEMPLATE template0 ENCODING '\''UTF8'\'';";
-'
+sudo -u postgres psql <<'SQL'
+CREATE ROLE awx LOGIN PASSWORD 'password';
+SQL
+
+sudo -u postgres psql <<'SQL'
+ALTER USER awx WITH PASSWORD 'password';
+SQL
+
+sudo -u postgres psql <<'SQL'
+CREATE DATABASE awx WITH OWNER awx TEMPLATE template0 ENCODING 'UTF8';
+SQL
+
 
 
 ------------------------------------------------------------------------------------------
 # automationhub
 ----------------
 
-sudo -iu postgres bash -lc '
-    psql -d postgres -c "CREATE ROLE automationhub LOGIN PASSWORD '\''password'\'';";
-'
+sudo -u postgres psql <<'SQL'
+CREATE ROLE automationhub LOGIN PASSWORD 'password';
+SQL
 
-sudo -iu postgres bash -lc '
-    psql -d postgres -c "CREATE DATABASE automationhub WITH OWNER automationhub TEMPLATE template0 ENCODING '\''UTF8'\'';";
-'
+sudo -u postgres psql <<'SQL'
+ALTER USER automationhub WITH PASSWORD 'password';
+SQL
+
+sudo -u postgres psql <<'SQL'
+CREATE DATABASE automationhub WITH OWNER automationhub TEMPLATE template0 ENCODING 'UTF8';
+SQL
+
 
 ------------------------------------------------------------------------------------------
 #automationedacontroller
 ------------------------
 
-sudo -iu postgres bash -lc '
-    psql -d postgres -c "CREATE ROLE automationedacontroller LOGIN PASSWORD '\''password'\'';";
-'
+sudo -u postgres psql <<'SQL'
+CREATE ROLE automationedacontroller LOGIN PASSWORD 'password';
+SQL
 
-sudo -iu postgres bash -lc '
-    psql -d postgres -c "ALTER USER automationedacontroller WITH PASSWORD '\''password'\'';";
-'
+sudo -u postgres psql <<'SQL'
+ALTER USER automationedacontroller WITH PASSWORD 'password';
+SQL
 
-sudo -iu postgres bash -lc '
-    psql -d postgres -c "CREATE DATABASE automationedacontroller WITH OWNER automationedacontroller TEMPLATE template0 ENCODING '\''UTF8'\'';";
-'
-
+sudo -u postgres psql <<'SQL'
+CREATE DATABASE automationedacontroller WITH OWNER automationedacontroller TEMPLATE template0 ENCODING 'UTF8';
+SQL
 
 
 ------------------------------------------------------------------------------------------
 
+#Definitely run this
+---------------------
+
+vi /var/lib/pgsql/data/pg_hba.conf
+
+
+# Controller (AWX)
+host    awx             awx             127.0.0.1/32        md5
+host    awx             awx             ::1/128             md5
+
+# Automation Hub
+host    automationhub   automationhub   127.0.0.1/32        md5
+host    automationhub   automationhub   ::1/128             md5
+
+# EDA Controller
+host    automationedacontroller         automationedacontroller             127.0.0.1/32        md5
+host    automationedacontroller         automationedacontroller             ::1/128             md5
+
+local   awx             awx                                 md5
+local   automationhub   automationhub                       md5
+local   automationedacontroller         automationedacontroller                                 md5
+
+sudo -u postgres psql -c "SELECT pg_reload_conf();"
+
+--------------------------------------------------------------------------------------------
+
+#Testing connections
 PGPASSWORD='password' psql \
   "host=127.0.0.1 port=5432 dbname=awx user=awx connect_timeout=5" \
   -c "select current_user, current_database();"
@@ -72,3 +111,5 @@ PGPASSWORD='password' psql \
   -c "select current_user, current_database();"
 
 --------------------------------------------------------------------------------------------
+
+
